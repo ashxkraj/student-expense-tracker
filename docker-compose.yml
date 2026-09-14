@@ -1,0 +1,53 @@
+version: '3.8'
+
+services:
+  mongo:
+    image: mongo:7
+    container_name: expense-mongo
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_DATABASE: expense-tracker
+    volumes:
+      - mongo_data:/data/db
+    ports:
+      - "27017:27017"
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh --quiet
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build: ./backend
+    container_name: expense-backend
+    restart: unless-stopped
+    depends_on:
+      mongo:
+        condition: service_healthy
+    environment:
+      PORT: 3000
+      MONGODB_URI: mongodb://mongo:27017/expense-tracker
+      JWT_SECRET: your-super-secret-jwt-key-change-in-production
+      NODE_ENV: development
+    ports:
+      - "3000:3000"
+    networks:
+      - expense-network
+
+  frontend:
+    build: ./frontend
+    container_name: expense-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "8080:8080"
+    networks:
+      - expense-network
+
+volumes:
+  mongo_data:
+
+networks:
+  expense-network:
+    driver: bridge
